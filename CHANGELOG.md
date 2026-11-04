@@ -4,6 +4,7 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 
 ## [unreleased][unreleased]
  - Fix generic LF ADC acquisitions dropping the tail of each DMA batch; add a versioned complete-window response and reject truncated captures.
+ - Add verified LF waveform capture files, offline statistics and BIN/CSV/SVG exports, retaining explicit unverified provenance for legacy ADC captures.
  - Fix reset when BLE bonds are deleted while connected (@mfcarroll)
  - Fixed ISO14443-4 (T=CL) tag emulation silently truncating any received command of 32+ bytes (e.g. an EMV GPO with a full PDOL): `nfc_tag_14a_unwrap_frame` returned the data-bit count as `uint8_t`, wrapping it mod 256 (@whitewhidow)
 
