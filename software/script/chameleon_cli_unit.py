@@ -59,6 +59,8 @@ from lf_waveform import (
     WaveformError, capture_waveform, check_output, export_waveform,
     load_waveform, save_waveform, summarize,
 )
+from em4x05_backup import EM4x05Reader
+from em4x05_decode import EMReadError
 
 # NXP IDs based on https://www.nxp.com/docs/en/application-note/AN10833.pdf
 type_id_SAK_dict = {
@@ -1011,6 +1013,49 @@ class DataWaveformExport(BaseCLIUnit):
             print(f"Exported {args.format}: {args.out}")
         except WaveformError as error:
             raise ArgsParserError(str(error)) from error
+
+
+def em4x05_password(value: str) -> int:
+    if not re.fullmatch(r"[0-9a-fA-F]{8}", value):
+        raise argparse.ArgumentTypeError("password must contain exactly eight hex digits")
+    return int(value, 16)
+
+
+@lf_em_4x05.command("read-word")
+class LFEM4x05ReadWord(DeviceRequiredUnit):
+    def args_parser(self) -> ArgumentParserNoExit:
+        parser = ArgumentParserNoExit()
+        parser.description = "Read one EM4205/4305 word twice using READ and optional known-password LOGIN"
+        parser.add_argument("-b", "--block", type=int, required=True, choices=range(16))
+        parser.add_argument("--pwd", type=em4x05_password)
+        return parser
+
+    def on_exec(self, args: argparse.Namespace):
+        try:
+            value = EM4x05Reader(self.device_com).read_word(args.block, args.pwd)
+            print(f"Word {args.block}: {value:08X}")
+        except (EMReadError, OSError) as error:
+            extra = getattr(error, "restore_error", None)
+            raise ArgsParserError(f"{error}" + (f"; mode restoration: {extra}" if extra else "")) from error
+
+
+@lf_em_4x05.command("backup")
+class LFEM4x05Backup(DeviceRequiredUnit):
+    def args_parser(self) -> ArgumentParserNoExit:
+        parser = ArgumentParserNoExit()
+        parser.description = "Save all readable EM4205/4305 words; password word stays explicitly unknown"
+        parser.add_argument("-o", "--out", type=Path, required=True)
+        parser.add_argument("--pwd", type=em4x05_password)
+        return parser
+
+    def on_exec(self, args: argparse.Namespace):
+        try:
+            value = EM4x05Reader(self.device_com).backup(args.out, args.pwd)
+            print(f"Saved 15 readable {value['chip']} words; password word 2 is not stored")
+            print(f"SHA-256: {value['document_sha256']}")
+        except (EMReadError, OSError) as error:
+            extra = getattr(error, "restore_error", None)
+            raise ArgsParserError(f"{error}" + (f"; mode restoration: {extra}" if extra else "")) from error
 
 
 @root.command("clear")
